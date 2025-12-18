@@ -6,9 +6,8 @@ void setup() {
   Serial.println("NFCMusicPlayer starting...");
   Serial.println();
 
-  // Brownout
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-  Serial.println("- Brownout disabled");
+  // Keep brownout enabled to detect power issues
+  Serial.println("- Brownout detector active (protects ESP32)");
 
   // PINs
   pinMode(STATUS_LED, OUTPUT);
@@ -43,10 +42,20 @@ void setup() {
       digitalWrite(STATUS_LED, HIGH);
       delay(200);
       digitalWrite(STATUS_LED, LOW);
-      delay(200);     
+      delay(200);
     }
   }
-  Serial.printf("- PN532 board OK, firmware: %d\n", (versiondata>>16) & 0xFF);
+  Serial.printf("- PN532 board OK, firmware: v%d.%d\n", (versiondata>>16) & 0xFF, (versiondata>>8) & 0xFF);
+
+  // Configure PN532 to read RFID tags
+  nfc.SAMConfig();
+
+  // Optimize RF power for battery operation
+  uint8_t rfConfig[] = {0x32, 0x01, 0x00, 0x0B, 0x0A};
+  nfc.sendCommandCheckAck(rfConfig, sizeof(rfConfig));
+  delay(50);
+
+  nfc.setPassiveActivationRetries(0x05);
 
   // Run WiFi in AccessPoint MODE
   WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -102,14 +111,14 @@ void nfcTaskCode(void * pvParameters) {
   for(;;) {
     long currentTime = millis();
     if(currentTime - lastReadTime > NFC_READ_INTERVAL) {
-    
+
       uint8_t success;
       uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
       uint8_t uidLength;
-      success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 1500);
-      
+      success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 1000);
+
       if (success) {
-        
+
         nfcPresent = true;
         // Save the nfcUID in the form AA:BB:CC:DD...
         tagID = "";
@@ -117,18 +126,18 @@ void nfcTaskCode(void * pvParameters) {
           if(uid[i] <= 0xF) tagID += "0";
           tagID += String(uid[i] & 0xFF, HEX);
           if(i < (uidLength - 1)) tagID += ":";
-          
+
         }
-        Serial.printf("Tag found, %S\n", tagID.c_str());       
+        Serial.printf("Tag found: %s\n", tagID.c_str());
 
         if(!playing) {
-          
+
           // Find in the mappings the song to be played
           for(int i = 0; i < mappings.getSize(); i++) {
             if(tagID.equals(mappings[i].tagid)) {
               char songPath[255];
               sprintf(songPath, "%s/%s", MUSIC_FOLDER,mappings[i].song.c_str());
-              Serial.printf("Tag found, playing %s\n", songPath);
+              Serial.printf("Playing: %s\n", songPath);
               audio.connecttoFS(SD, songPath);
               playing = true;
               digitalWrite(PLAY_LED, HIGH);
@@ -137,12 +146,12 @@ void nfcTaskCode(void * pvParameters) {
           }
         }
       }
-      
+
       else {
-        
+
         nfcPresent = false;
         if(playing) {
-          Serial.println("Tag not found, stop playing");
+          Serial.println("Tag removed, stop playing");
           audio.stopSong();
           playing = false;
           digitalWrite(PLAY_LED, LOW);
@@ -150,6 +159,9 @@ void nfcTaskCode(void * pvParameters) {
       }
       lastReadTime = currentTime;
     }
+
+    // Small delay to prevent task from hogging CPU
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
