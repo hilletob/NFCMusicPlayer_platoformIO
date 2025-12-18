@@ -60,7 +60,7 @@ void setup() {
 
   // Configure Audio library
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolumeSteps(20);
+  // audio.setVolumeSteps(20); // Method not available in ESP32-audioI2S 2.0.6+
   audio.setVolume(currentVolume);
   audio.setTone(10, 0, 0);
   Serial.println("- Audio library OK");
