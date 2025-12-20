@@ -48,6 +48,38 @@
 <button id="add-mapping-button" class="grid-button">Add mapping</button>
 </div>
 </div>
+
+<!-- File Management Section -->
+<div id="section-files-div" class="section">
+<h3>File Management</h3>
+</div>
+
+<div class="files-container">
+
+  <!-- Upload Section -->
+  <div class="upload-section">
+    <h4>Upload MP3 Files</h4>
+    <input type="file" id="file-input" accept=".mp3,audio/mpeg" multiple>
+    <button id="upload-button" class="grid-button">Upload Files</button>
+    <div id="upload-progress"></div>
+  </div>
+
+  <!-- Files Table -->
+  <table id="files-table" class="files-table">
+    <thead>
+      <tr>
+        <th>Filename</th>
+        <th>Size</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="files-tbody">
+    </tbody>
+  </table>
+
+</div>
+
 </body>
 
 </html>
