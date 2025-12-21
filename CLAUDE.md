@@ -33,11 +33,17 @@ Handles persistent storage of NFC tag-to-song mappings:
 ### Webserver.ino
 Provides REST API and web UI for configuration:
 - Serves static web UI files from `/web/` folder on SD card
+
+**REST API Endpoints:**
 - **GET /tagid**: Returns currently detected NFC tag UID
-- **GET /songs**: Lists all MP3 files in `/music/` folder
+- **GET /songs**: Lists all MP3 files in `/music/` folder with metadata (name, size, timestamp, mapped status)
 - **GET /mappings**: Returns all configured tag-to-song mappings
+- **GET /download?file=**: Downloads/streams an MP3 file
 - **POST /addmapping**: Adds new mapping (max 20 slots)
 - **POST /delmapping**: Removes mapping by tag ID
+- **POST /upload**: Handles chunked file upload for MP3 files
+- **POST /deletefile**: Deletes an MP3 file (checks if mapped first)
+- **POST /renamefile**: Renames an MP3 file (updates mappings automatically)
 
 ### NFCMusicPlayer.h
 Central header file containing:
@@ -51,9 +57,14 @@ Central header file containing:
 ## File System Structure (SD Card)
 
 The SD card must contain:
-- `/mappings.txt` - NFC tag to song mappings (pipe-delimited)
+- `/mappings.txt` - NFC tag to song mappings (pipe-delimited: `AA:BB:CC:DD|songname.mp3`)
 - `/music/` - Directory containing MP3 files
-- `/web/` - Web UI files (index.html, index.js, index.css, jquery.js)
+- `/web/` - Web UI files:
+  - `index.html` - Main web interface (Tailwind CSS dark theme)
+  - `index.js` - JavaScript application logic
+  - `tailwind.css` - Tailwind CSS utilities (offline-capable, ~12KB)
+  - `index.css` - Minimal custom CSS (scrollbar, smooth scrolling)
+  - `jquery.js` - jQuery library for AJAX and DOM manipulation
 
 ## Development Commands
 
@@ -132,6 +143,68 @@ No manual library installation required when using PlatformIO.
 - Password: "MyMusicPlayer"
 - Static IP assigned by ESP32 softAP
 
+## Web UI Architecture
+
+### Design Philosophy
+- **Dark Theme**: Minimalist slate-based color scheme optimized for readability
+- **Offline-First**: All assets served locally from SD card (no CDN dependencies)
+- **Mobile-Responsive**: Tailwind CSS utilities for adaptive layouts
+- **Modern UX**: Toast notifications, smooth transitions, visual feedback
+
+### Technology Stack
+- **Tailwind CSS**: Custom minimal build (~12KB) with only used utility classes
+- **jQuery**: AJAX requests and DOM manipulation
+- **HTML5 Audio API**: In-browser MP3 preview playback
+- **Vanilla JavaScript**: Toast notifications, file upload, table sorting
+
+### UI Sections
+
+**1. Add New Tag**
+- Scan NFC tag button (queries `/tagid` endpoint)
+- Song selection dropdown
+- Add mapping button
+- Visual feedback with toast notifications
+
+**2. File Management**
+- Unified table showing all MP3 files with inline NFC tag management
+- **Columns**: Play preview | Filename | Size | Upload Date | NFC Tag | Actions
+- **Features**:
+  - Sortable columns (name, size, date) - click headers to toggle
+  - Default sort: newest files first
+  - Audio preview with HTML5 Audio API (play/pause toggle)
+  - Inline NFC tag assignment/removal (🏷 and ✕ buttons)
+  - File actions: Download, Rename, Delete
+- **Upload Section**:
+  - Visual file selection feedback
+  - Real-time progress bar with percentage
+  - Sequential file upload for reliability
+  - Validates MP3 format before upload
+
+### Toast Notification System
+Replaces browser `alert()` dialogs with modern, non-intrusive notifications:
+- **Success** (green checkmark): File uploaded, mapping added, etc.
+- **Error** (red X): Upload failed, invalid file, etc.
+- **Warning** (amber triangle): No tag detected, validation issues
+- **Info** (blue circle): General information
+- Auto-dismiss after 3 seconds with slide-in animation
+
+### Client-Side File Management
+- **Upload**: Sequential chunked upload with progress tracking
+- **Download**: Direct download via `/download?file=` endpoint
+- **Delete**: Server validates file is not mapped before deletion
+- **Rename**: Server automatically updates all mappings with new filename
+- **Preview**: Streams file via `/download` endpoint to HTML5 Audio element
+
+### Responsive Breakpoints
+- **Mobile (<640px)**: Single column, size/date columns hidden, larger touch targets
+- **Tablet (640-1024px)**: Size column visible, optimized spacing
+- **Desktop (>1024px)**: All columns visible, full feature set
+
+### State Management
+- **Current Sort**: `{ column: 'date', ascending: false }` (newest first)
+- **Current Audio**: Tracks playing preview, ensures only one plays at a time
+- File list refreshes after: upload, delete, rename, mapping changes
+
 ## Pin Assignments
 
 Critical SPI pin configuration (non-standard):
@@ -164,3 +237,14 @@ When adding new web endpoints:
 - Add handler in Webserver.ino `initWebserver()`
 - Use AsyncResponseStream with ArduinoJson for responses
 - Keep JSON document sizes reasonable for ESP32 memory limits
+- Update corresponding JavaScript in index.js to consume the endpoint
+- Add toast notifications for user feedback
+
+When modifying the web UI:
+- **Styling**: Add utility classes to `tailwind.css` if needed (keep file minimal)
+- **Custom CSS**: Use `index.css` only for browser-specific overrides (scrollbar, etc.)
+- **Colors**: Dark theme uses slate-* color palette (slate-900 background, slate-100 text)
+- **Responsive**: Use Tailwind breakpoints: sm (640px), md (768px), lg (1024px)
+- **User Feedback**: Always use `showToast()` instead of `alert()` for notifications
+- **File Operations**: Refresh file list and dropdowns after modifications
+- **Offline Requirement**: Never use CDN links - all assets must be local on SD card

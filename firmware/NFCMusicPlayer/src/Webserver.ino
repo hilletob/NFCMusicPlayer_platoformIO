@@ -34,6 +34,10 @@ void initWebserver() {
           fileObj["name"] = String(musicFile.name());
           fileObj["size"] = musicFile.size();
 
+          // Add file modification timestamp
+          time_t lastWrite = musicFile.getLastWrite();
+          fileObj["timestamp"] = (uint32_t)lastWrite;
+
           // Check if file is mapped
           bool isMapped = false;
           for(int i = 0; i < mappings.getSize(); i++) {
@@ -131,14 +135,10 @@ void initWebserver() {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
       StaticJsonDocument<200> doc;
 
-      if (request->_tempFile) {
-        request->_tempFile.close();
-        doc["result"] = "OK";
-        doc["message"] = "File uploaded successfully";
-      } else {
-        doc["result"] = "ERROR";
-        doc["message"] = "Upload failed";
-      }
+      // If we reach this handler, upload succeeded
+      // (errors during chunking already sent response and returned)
+      doc["result"] = "OK";
+      doc["message"] = "File uploaded successfully";
 
       serializeJson(doc, *response);
       request->send(response);
