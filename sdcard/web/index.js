@@ -55,10 +55,7 @@ let currentSort = { column: 'date', ascending: false };  // Default: newest firs
 
 // Get the list of songs in the SD card
 $.getJSON("/songs", function(data) {
-	$('#songs-select').empty();
-	$('#songs-select').append(new Option("Select a song...", ""));
 	$.each(data, function(key, fileObj) {
-		$('#songs-select').append(new Option(fileObj.name, fileObj.name));
 	});
 });
 
@@ -67,52 +64,6 @@ refreshFileList();
 
 // ==================== BUTTON EVENT HANDLERS ====================
 
-$("#get-tag-id-button").on("click", function() {
-	$.get("/tagid", function(data) {
-		if (data.tagid) {
-			$("#tag-id").val(data.tagid);
-			showToast("Tag detected: " + data.tagid, "success");
-		} else {
-			$("#tag-id").val("");
-			showToast("No tag detected. Please place a tag on the reader.", "warning");
-		}
-	});
-});
-
-$("#add-mapping-button").on("click", function() {
-	const newtagid = $("#tag-id").val();
-	const newsong = $("#songs-select").find(":selected").text();
-
-	if(newtagid == "") {
-		showToast("No Tag ID found. Press 'Scan Tag' with a tag on the reader.", "error");
-		return;
-	}
-
-	if(newsong == "" || newsong == "Select a song...") {
-		showToast("Please select a song from the dropdown.", "error");
-		return;
-	}
-
-	console.log("Adding " + newtagid + " - " + newsong);
-
-	$.ajax({
-		type: 'POST',
-		url: '/addmapping',
-		data: JSON.stringify ({tagid: newtagid, song: newsong}),
-		contentType: "application/json",
-		dataType: 'json',
-		complete: function(jqXHR, textStatus) {
-			if(jqXHR.status == 200) {
-				showToast("Mapping added successfully!", "success");
-				$("#tag-id").val("");
-				refreshFileList(); // Refresh file list to show new mapping
-			}
-			else {
-				showToast("Unable to add mapping: " + jqXHR.responseJSON["result"], "error");
-			}
-		}
-	});
-});
 
 // ==================== FILE MANAGEMENT ====================
 
@@ -174,16 +125,16 @@ function refreshFileList() {
 						<span class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-mono border border-blue-500/30">
 							${tagId}
 						</span>
-						<button class="remove-mapping-btn p-1.5 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors" title="Remove NFC Mapping">✕</button>
+						<button class="remove-mapping-btn p-1.5 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded transition-colors" title="Remove NFC Mapping" data-tagid="${tagId}">✕</button>
 					</div>
 				`;
 			} else {
-				nfcTagCell = `
-					<div class="flex items-center gap-2">
-						<span class="text-slate-500 text-sm italic">not mapped</span>
-						<button class="assign-tag-btn p-1.5 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded transition-colors" title="Assign NFC Tag">🏷</button>
-					</div>
-				`;
+			// File unmapped - show "Scan & Assign Tag" button
+			nfcTagCell = `
+				<button class="scan-assign-tag-btn px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded transition-colors inline-flex items-center gap-1" data-filename="${fileObj.name}">
+					<span>🔍</span> Scan & Assign Tag
+				</button>
+			`;
 			}
 
 			const row = `
@@ -253,11 +204,8 @@ function uploadFileSequentially(files, index) {
 
 		// Refresh file list and dropdown
 		refreshFileList();
-		$('#songs-select').empty();
-		$('#songs-select').append(new Option("Select a song...", ""));
 		$.getJSON("/songs", function(data) {
 			$.each(data, function(key, fileObj) {
-				$('#songs-select').append(new Option(fileObj.name, fileObj.name));
 			});
 		});
 		return;
@@ -361,11 +309,8 @@ $(document).on("click", ".delete-btn", function() {
 				showToast("File deleted successfully", "success");
 				refreshFileList();
 				// Refresh songs dropdown
-				$('#songs-select').empty();
-				$('#songs-select').append(new Option("Select a song...", ""));
 				$.getJSON("/songs", function(data) {
 					$.each(data, function(key, fileObj) {
-						$('#songs-select').append(new Option(fileObj.name, fileObj.name));
 					});
 				});
 			} else if (response.result === "INUSE") {
@@ -412,11 +357,8 @@ $(document).on("click", ".rename-btn", function() {
 
 				refreshFileList();
 				// Refresh songs dropdown
-				$('#songs-select').empty();
-				$('#songs-select').append(new Option("Select a song...", ""));
 				$.getJSON("/songs", function(data) {
 					$.each(data, function(key, fileObj) {
-						$('#songs-select').append(new Option(fileObj.name, fileObj.name));
 					});
 				});
 			} else if (response.result === "EXISTS") {
@@ -475,61 +417,63 @@ $(document).on("click", ".play-btn", function() {
 
 // ==================== ASSIGN/REMOVE NFC TAG ====================
 
-let modalCurrentFilename = null;
 
-$(document).on("click", ".assign-tag-btn", function() {
-	modalCurrentFilename = $(this).closest('tr').data('filename');
+// Event handler for "Scan & Assign Tag" buttons
+$(document).on("click", ".scan-assign-tag-btn", function() {
+	const $button = $(this);
+	const filename = $button.data("filename");
 
-	const tagId = prompt(`Assign NFC Tag to: ${modalCurrentFilename}\n\nScan tag and click "Scan Tag" button first, or enter Tag ID manually:`);
+	// Disable button and show loading state
+	$button.prop('disabled', true).text('Scanning...');
 
-	if (!tagId) return;
+	// Scan for tag
+	$.get("/tagid", function(data) {
+		if (data.tagid && data.tagid !== "") {
+			const tagid = data.tagid;
 
-	// Check if tag already mapped
-	$.getJSON("/mappings", function(mappings) {
-		const existing = mappings.find(m => m.tagid === tagId);
-
-		if (existing) {
-			if (!confirm(`Tag ${tagId} is already mapped to "${existing.song}". Overwrite?`)) {
-				return;
-			}
-			// Delete old mapping first
-			$.ajax({
-				type: 'POST',
-				url: '/delmapping',
-				data: JSON.stringify({tagid: tagId}),
-				contentType: "application/json",
-				dataType: 'json',
-				success: function() {
-					// Now add new mapping
-					addMapping(tagId, modalCurrentFilename);
+			// Check if tag is already mapped to another file
+			$.getJSON("/mappings", function(mappings) {
+				if (!mappings) {
+					mappings = [];
 				}
+
+				const existingMapping = mappings.find(m => m.tagid === tagid);
+				if (existingMapping) {
+					showToast(`Tag ${tagid} is already mapped to ${existingMapping.song}`, "error");
+					$button.prop('disabled', false).html('<span>🔍</span> Scan & Assign Tag');
+					return;
+				}
+
+				// Add the mapping
+				$.ajax({
+					type: 'POST',
+					url: '/addmapping',
+					data: JSON.stringify({tagid: tagid, song: filename}),
+					contentType: "application/json",
+					dataType: 'json',
+					complete: function(jqXHR, textStatus) {
+						if(jqXHR.status == 200) {
+							showToast(`Tag ${tagid} assigned to ${filename}`, "success");
+							refreshFileList(); // Refresh to show new mapping
+						} else {
+							showToast("Unable to add mapping: " + jqXHR.responseJSON["result"], "error");
+							$button.prop('disabled', false).html('<span>🔍</span> Scan & Assign Tag');
+						}
+					}
+				});
+			}).fail(function() {
+				showToast("Error loading mappings", "error");
+				$button.prop('disabled', false).html('<span>🔍</span> Scan & Assign Tag');
 			});
 		} else {
-			addMapping(tagId, modalCurrentFilename);
+			showToast("No tag detected. Please place a tag on the reader.", "warning");
+			$button.prop('disabled', false).html('<span>🔍</span> Scan & Assign Tag');
 		}
+	}).fail(function() {
+		showToast("Error scanning for tag", "error");
+		$button.prop('disabled', false).html('<span>🔍</span> Scan & Assign Tag');
 	});
 });
-
-function addMapping(tagId, filename) {
-	$.ajax({
-		type: 'POST',
-		url: '/addmapping',
-		data: JSON.stringify({tagid: tagId, song: filename}),
-		contentType: "application/json",
-		dataType: 'json',
-		success: function(response) {
-			if (response.result === "OK") {
-				showToast("Tag assigned successfully", "success");
-				refreshFileList();
-			} else {
-				showToast(`Failed to assign tag: ${response.message}`, "error");
-			}
-		},
-		error: function() {
-			showToast("Error assigning tag", "error");
-		}
-	});
-}
 
 $(document).on("click", ".remove-mapping-btn", function() {
 	const filename = $(this).closest('tr').data('filename');

@@ -27,57 +27,6 @@
 <!-- Main Container -->
 <div class="container mx-auto px-4 py-6 max-w-7xl">
 
-  <!-- Add New Tag Section -->
-  <div class="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
-    <h3 class="text-xl font-semibold text-slate-100 mb-4 flex items-center gap-2">
-      <span class="text-2xl">➕</span> Add New Tag
-    </h3>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Tag ID Input -->
-      <div>
-        <label class="block text-sm font-medium text-slate-300 mb-2">Tag ID</label>
-        <div class="relative">
-          <input
-            type="text"
-            id="tag-id"
-            disabled
-            class="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Scan a tag first..."
-          >
-        </div>
-      </div>
-
-      <!-- Song Select -->
-      <div>
-        <label class="block text-sm font-medium text-slate-300 mb-2">Song</label>
-        <select
-          name="songs"
-          id="songs-select"
-          class="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="">Select a song...</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Buttons -->
-    <div class="flex flex-wrap gap-3 mt-4">
-      <button
-        id="get-tag-id-button"
-        class="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-      >
-        <span>🔍</span> Scan Tag
-      </button>
-      <button
-        id="add-mapping-button"
-        class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-      >
-        <span>➕</span> Add Mapping
-      </button>
-    </div>
-  </div>
-
   <!-- File Management Section -->
   <div class="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
     <h3 class="text-xl font-semibold text-slate-100 mb-4 flex items-center gap-2">
