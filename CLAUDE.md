@@ -159,26 +159,34 @@ No manual library installation required when using PlatformIO.
 
 ### UI Sections
 
-**1. Add New Tag**
-- Scan NFC tag button (queries `/tagid` endpoint)
-- Song selection dropdown
-- Add mapping button
-- Visual feedback with toast notifications
-
-**2. File Management**
-- Unified table showing all MP3 files with inline NFC tag management
+**File Management**
+- Unified table showing all MP3 files with integrated NFC tag management
 - **Columns**: Play preview | Filename | Size | Upload Date | NFC Tag | Actions
 - **Features**:
   - Sortable columns (name, size, date) - click headers to toggle
   - Default sort: newest files first
   - Audio preview with HTML5 Audio API (play/pause toggle)
-  - Inline NFC tag assignment/removal (🏷 and ✕ buttons)
+  - **Inline NFC tag management**:
+    - Unmapped files: "🔍 Scan & Assign Tag" button - one-click scan and assign
+    - Mapped files: Tag ID badge with remove (✕) button
+    - Automatic duplicate tag detection
   - File actions: Download, Rename, Delete
 - **Upload Section**:
   - Visual file selection feedback
   - Real-time progress bar with percentage
   - Sequential file upload for reliability
   - Validates MP3 format before upload
+
+### NFC Tag Workflow
+1. User places NFC tag on the reader
+2. User clicks "🔍 Scan & Assign Tag" button in the desired file's row
+3. Button shows "Scanning..." loading state
+4. System automatically:
+   - Scans for tag via `/tagid` endpoint
+   - Checks if tag is already mapped to another file
+   - Assigns tag to the selected file via `/addmapping` endpoint
+5. Table updates to show tag badge with remove button
+6. Toast notification confirms success or reports errors
 
 ### Toast Notification System
 Replaces browser `alert()` dialogs with modern, non-intrusive notifications:
