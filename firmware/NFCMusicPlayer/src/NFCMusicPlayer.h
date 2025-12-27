@@ -28,6 +28,7 @@
 #define STATUS_LED    4
 #define VOLUME_PIN    34
 #define BATTERY_PIN   35
+#define POWER_PIN     22  // Controls external power circuit (changed from 21 to 22 for testing)
 
 // Configuration
 #define NFC_READ_INTERVAL   2000
@@ -38,6 +39,7 @@
 #define WEBUI_FOLDER        "/web/"
 #define AP_SSID             "NFCMusicPlayer"
 #define AP_PASSWORD         "MyMusicPlayer"
+#define SHUTDOWN_TIMEOUT_MS  120000  // 2 minutes auto-shutdown
 
 
 // Struct and array for mapping between tags and songs
@@ -62,3 +64,4 @@ long lastReadTime = -1;
 long volumeSamplesSum = 0;
 int volumeSamples = 0;
 int currentVolume = 10;
+volatile unsigned long lastActivityTime = 0;  // Tracks last activity for auto-shutdown

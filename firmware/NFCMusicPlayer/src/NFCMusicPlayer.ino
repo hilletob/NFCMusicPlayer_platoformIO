@@ -13,7 +13,13 @@ void setup() {
   pinMode(STATUS_LED, OUTPUT);
   pinMode(PLAY_LED, OUTPUT);
   pinMode(VOLUME_PIN, INPUT);
+
+  // Initialize power control
+  pinMode(POWER_PIN, OUTPUT);
+  digitalWrite(POWER_PIN, HIGH);  // Power ON (HIGH)
+  lastActivityTime = millis();    // Initialize activity timer
   Serial.println("- PINs configured");
+  Serial.println("- Power control initialized (GPIO22 = HIGH)");
 
   // Check SD card, blink in case of error
   spi.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
@@ -85,6 +91,21 @@ void setup() {
 }
 
 void loop() {
+
+  // Auto-shutdown check
+  unsigned long currentTime = millis();
+  if (playing) {
+    lastActivityTime = currentTime;  // Music playing = activity
+  }
+
+  unsigned long elapsed = currentTime - lastActivityTime;
+
+  // Trigger shutdown if timeout exceeded and not playing
+  if (elapsed >= SHUTDOWN_TIMEOUT_MS && !playing) {
+    digitalWrite(POWER_PIN, LOW);   // Power OFF (LOW)
+    Serial.println("Auto-shutdown: 2 minutes of inactivity (GPIO22 = LOW)");
+    // External circuit will cut power shortly
+  }
 
   // Audio library required loop
   audio.loop();

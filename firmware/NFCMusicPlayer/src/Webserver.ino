@@ -2,7 +2,13 @@ void initWebserver() {
 
   // Serve static files in the WEBUI_FOLDER
   server.serveStatic("/", SD, WEBUI_FOLDER).setDefaultFile("index.html");
-  
+
+  // Global middleware: track HTTP activity for auto-shutdown
+  server.addMiddleware([](AsyncWebServerRequest *request, ArMiddlewareNext next) {
+    lastActivityTime = millis();  // Any HTTP request = activity
+    next();  // Continue to handler
+  });
+
   // Serve /uid endpoint
   server.on("/tagid", HTTP_GET, [](AsyncWebServerRequest *request) {
 
