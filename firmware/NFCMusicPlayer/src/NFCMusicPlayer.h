@@ -30,6 +30,10 @@
 #define BATTERY_PIN   35
 #define POWER_PIN     22  // Controls external power circuit (changed from 21 to 22 for testing)
 
+// Navigation buttons
+#define FORWARD_BTN   16
+#define BACKWARD_BTN  17
+
 // Configuration
 #define NFC_READ_INTERVAL   2000
 #define VOLUME_SAMPLES      200
@@ -65,3 +69,17 @@ long volumeSamplesSum = 0;
 int volumeSamples = 0;
 int currentVolume = 10;
 volatile unsigned long lastActivityTime = 0;  // Tracks last activity for auto-shutdown
+
+// Button debouncing variables
+unsigned long lastForwardDebounce = 0;
+unsigned long lastBackwardDebounce = 0;
+unsigned long lastForwardTrigger = 0;
+unsigned long lastBackwardTrigger = 0;
+bool lastForwardState = HIGH;
+bool lastBackwardState = HIGH;
+
+// Button configuration constants
+#define DEBOUNCE_DELAY    50   // milliseconds
+#define REPEAT_DELAY      300  // milliseconds minimum between triggers
+#define FORWARD_SEEK_SEC  30   // seconds to skip forward
+#define BACKWARD_SEEK_SEC -10  // seconds to skip backward (negative)

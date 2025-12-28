@@ -13,12 +13,14 @@ void setup() {
   pinMode(STATUS_LED, OUTPUT);
   pinMode(PLAY_LED, OUTPUT);
   pinMode(VOLUME_PIN, INPUT);
+  pinMode(FORWARD_BTN, INPUT_PULLUP);
+  pinMode(BACKWARD_BTN, INPUT_PULLUP);
 
   // Initialize power control
   pinMode(POWER_PIN, OUTPUT);
   digitalWrite(POWER_PIN, HIGH);  // Power ON (HIGH)
   lastActivityTime = millis();    // Initialize activity timer
-  Serial.println("- PINs configured");
+  Serial.println("- PINs configured (including navigation buttons on GPIO16/17)");
   Serial.println("- Power control initialized (GPIO22 = HIGH)");
 
   // Check SD card, blink in case of error
@@ -124,6 +126,9 @@ void loop() {
     volumeSamplesSum = 0;
     volumeSamples = 0;
   }
+
+  // Check navigation buttons (only active while playing)
+  checkNavigationButtons();
 }
 
 // NFC Task: check if a NFC tag is present
@@ -191,4 +196,47 @@ void audio_eof_mp3(const char *info){  //end of file
     Serial.println("End of song");
     playing = false;
     digitalWrite(PLAY_LED, LOW);
+}
+
+// Check navigation buttons with debouncing
+void checkNavigationButtons() {
+  unsigned long currentTime = millis();
+
+  // Read current button states
+  bool forwardReading = digitalRead(FORWARD_BTN);
+  bool backwardReading = digitalRead(BACKWARD_BTN);
+
+  // --- FORWARD BUTTON ---
+  if (forwardReading != lastForwardState) {
+    lastForwardDebounce = currentTime;
+  }
+
+  if ((currentTime - lastForwardDebounce) > DEBOUNCE_DELAY) {
+    if (forwardReading == LOW && playing &&
+        (currentTime - lastForwardTrigger) > REPEAT_DELAY) {
+
+      Serial.println("Forward button pressed - seeking +30 seconds");
+      audio.setTimeOffset(FORWARD_SEEK_SEC);
+      lastForwardTrigger = currentTime;
+      lastActivityTime = currentTime;  // Reset auto-shutdown timer
+    }
+  }
+  lastForwardState = forwardReading;
+
+  // --- BACKWARD BUTTON ---
+  if (backwardReading != lastBackwardState) {
+    lastBackwardDebounce = currentTime;
+  }
+
+  if ((currentTime - lastBackwardDebounce) > DEBOUNCE_DELAY) {
+    if (backwardReading == LOW && playing &&
+        (currentTime - lastBackwardTrigger) > REPEAT_DELAY) {
+
+      Serial.println("Backward button pressed - seeking -10 seconds");
+      audio.setTimeOffset(BACKWARD_SEEK_SEC);
+      lastBackwardTrigger = currentTime;
+      lastActivityTime = currentTime;  // Reset auto-shutdown timer
+    }
+  }
+  lastBackwardState = backwardReading;
 }
