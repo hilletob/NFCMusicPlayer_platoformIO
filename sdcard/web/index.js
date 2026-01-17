@@ -50,8 +50,67 @@ function showToast(message, type = "info") {
 
 let currentAudio = null;
 let currentSort = { column: 'date', ascending: false };  // Default: newest first
+let eqSaveTimeout = null;
+
+// ==================== EQUALIZER ====================
+
+// Load EQ settings from device
+function loadEQSettings() {
+  $.getJSON("/settings", function(data) {
+    $("#eq-bass").val(data.bass);
+    $("#eq-mid").val(data.mid);
+    $("#eq-treble").val(data.treble);
+    updateEQDisplay();
+  });
+}
+
+// Update display values
+function updateEQDisplay() {
+  $("#eq-bass-value").text($("#eq-bass").val() + " dB");
+  $("#eq-mid-value").text($("#eq-mid").val() + " dB");
+  $("#eq-treble-value").text($("#eq-treble").val() + " dB");
+}
+
+// Save EQ settings (debounced)
+function saveEQSettings() {
+  clearTimeout(eqSaveTimeout);
+  eqSaveTimeout = setTimeout(function() {
+    $.ajax({
+      type: 'POST',
+      url: '/settings',
+      data: JSON.stringify({
+        bass: parseInt($("#eq-bass").val()),
+        mid: parseInt($("#eq-mid").val()),
+        treble: parseInt($("#eq-treble").val())
+      }),
+      contentType: "application/json",
+      success: function() {
+        showToast("EQ saved", "success");
+      },
+      error: function() {
+        showToast("Error saving EQ settings", "error");
+      }
+    });
+  }, 300);  // 300ms debounce
+}
+
+// EQ slider event handlers
+$("#eq-bass, #eq-mid, #eq-treble").on("input", function() {
+  updateEQDisplay();
+  saveEQSettings();
+});
+
+// EQ reset button
+$("#eq-reset").click(function() {
+  $("#eq-bass, #eq-mid, #eq-treble").val(0);
+  updateEQDisplay();
+  saveEQSettings();
+});
 
 // ==================== INITIALIZATION ====================
+
+// Load EQ settings on page load
+loadEQSettings();
 
 // Get the list of songs in the SD card
 $.getJSON("/songs", function(data) {

@@ -36,7 +36,8 @@
 
 // Configuration
 #define NFC_READ_INTERVAL   2000
-#define VOLUME_SAMPLES      200
+#define VOLUME_SMOOTHING    0.1f    // EMA smoothing factor (0.05-0.2 recommended)
+#define VOLUME_UPDATE_MS    50      // Volume update interval in ms
 #define MAX_SLOTS           20
 #define MAPPINGS_FILE       "/mappings.txt"
 #define MUSIC_FOLDER        "/music"
@@ -65,8 +66,8 @@ String tagID;
 bool nfcPresent = false;
 bool playing = false;
 long lastReadTime = -1;
-long volumeSamplesSum = 0;
-int volumeSamples = 0;
+float smoothedVolume = 2048.0f;       // EMA value (start at midpoint)
+unsigned long lastVolumeUpdate = 0;
 int currentVolume = 10;
 volatile unsigned long lastActivityTime = 0;  // Tracks last activity for auto-shutdown
 
@@ -78,8 +79,16 @@ unsigned long lastBackwardTrigger = 0;
 bool lastForwardState = HIGH;
 bool lastBackwardState = HIGH;
 
+// EQ settings (range: -40 to +6 dB)
+int eqBass = 0;
+int eqMid = 0;
+int eqTreble = 0;
+
 // Button configuration constants
 #define DEBOUNCE_DELAY    50   // milliseconds
 #define REPEAT_DELAY      300  // milliseconds minimum between triggers
 #define FORWARD_SEEK_SEC  30   // seconds to skip forward
 #define BACKWARD_SEEK_SEC -10  // seconds to skip backward (negative)
+
+// EQ settings file
+#define SETTINGS_FILE     "/settings.json"

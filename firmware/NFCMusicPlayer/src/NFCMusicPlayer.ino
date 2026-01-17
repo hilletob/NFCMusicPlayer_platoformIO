@@ -79,8 +79,11 @@ void setup() {
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
   // audio.setVolumeSteps(20); // Method not available in ESP32-audioI2S 2.0.6+
   audio.setVolume(currentVolume);
-  audio.setTone(10, 0, 0);
-  Serial.println("- Audio library OK");
+
+  // Load and apply EQ settings
+  loadSettings();
+  audio.setTone(eqBass, eqMid, eqTreble);
+  Serial.printf("- Audio library OK (EQ: Bass=%d, Mid=%d, Treble=%d)\n", eqBass, eqMid, eqTreble);
 
   // Start NFC task
   xTaskCreate(nfcTaskCode, "nfcTask", 10000, NULL, tskIDLE_PRIORITY, &nfcTaskHandler);
@@ -112,19 +115,19 @@ void loop() {
   // Audio library required loop
   audio.loop();
 
-  // Check volume (average value every VOLUME_SAMPLES samples)
+  // EMA filter for fast but smoothed volume control
   int potValue = analogRead(VOLUME_PIN);
-  volumeSamplesSum += potValue;
-  volumeSamples++;
-  if(volumeSamples == VOLUME_SAMPLES) {
-    int newVolume = map(volumeSamplesSum / VOLUME_SAMPLES, 0, 4095, 0, 20);
+  smoothedVolume = (VOLUME_SMOOTHING * potValue) + ((1.0f - VOLUME_SMOOTHING) * smoothedVolume);
+
+  if(currentTime - lastVolumeUpdate >= VOLUME_UPDATE_MS) {
+    lastVolumeUpdate = currentTime;
+    // Logarithmic volume curve for natural perception (exponent 2.5)
+    float normalized = smoothedVolume / 4095.0f;
+    int newVolume = constrain((int)(20.0f * pow(normalized, 2.5f) + 0.5f), 0, 20);
     if(newVolume != currentVolume) {
       currentVolume = newVolume;
       audio.setVolume(currentVolume);
-      Serial.printf("Volume changed to: %d\n", currentVolume);
     }
-    volumeSamplesSum = 0;
-    volumeSamples = 0;
   }
 
   // Check navigation buttons (only active while playing)
@@ -196,6 +199,36 @@ void audio_eof_mp3(const char *info){  //end of file
     Serial.println("End of song");
     playing = false;
     digitalWrite(PLAY_LED, LOW);
+}
+
+// Load EQ settings from SD card
+void loadSettings() {
+  if (!SD.exists(SETTINGS_FILE)) return;
+
+  File file = SD.open(SETTINGS_FILE, FILE_READ);
+  if (!file) return;
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (!error) {
+    eqBass = doc["bass"] | 0;
+    eqMid = doc["mid"] | 0;
+    eqTreble = doc["treble"] | 0;
+  }
+  file.close();
+}
+
+// Save EQ settings to SD card
+void saveSettings() {
+  File file = SD.open(SETTINGS_FILE, FILE_WRITE);
+  if (!file) return;
+
+  JsonDocument doc;
+  doc["bass"] = eqBass;
+  doc["mid"] = eqMid;
+  doc["treble"] = eqTreble;
+  serializeJson(doc, file);
+  file.close();
 }
 
 // Check navigation buttons with debouncing

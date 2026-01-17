@@ -343,6 +343,37 @@ void initWebserver() {
   );
   server.addHandler(renameFileHandler);
 
+  // Serve /settings endpoint (GET - retrieve EQ settings)
+  server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+    StaticJsonDocument<100> doc;
+    doc["bass"] = eqBass;
+    doc["mid"] = eqMid;
+    doc["treble"] = eqTreble;
+    serializeJson(doc, *response);
+    request->send(response);
+  });
+
+  // Serve /settings endpoint (POST - update EQ settings)
+  AsyncCallbackJsonWebHandler* settingsHandler = new AsyncCallbackJsonWebHandler("/settings",
+    [](AsyncWebServerRequest *request, JsonVariant &json) {
+      JsonObject obj = json.as<JsonObject>();
+
+      eqBass = constrain((int)obj["bass"], -40, 6);
+      eqMid = constrain((int)obj["mid"], -40, 6);
+      eqTreble = constrain((int)obj["treble"], -40, 6);
+
+      audio.setTone(eqBass, eqMid, eqTreble);
+      saveSettings();
+
+      AsyncResponseStream *response = request->beginResponseStream("application/json");
+      StaticJsonDocument<100> doc;
+      doc["result"] = "OK";
+      serializeJson(doc, *response);
+      request->send(response);
+    });
+  server.addHandler(settingsHandler);
+
   // Start the webserver
   server.begin();
 }
